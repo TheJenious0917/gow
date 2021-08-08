@@ -1,24 +1,12 @@
 version: "3"
 
 services:
-
-  ##########################################
-  # There's a lot going on in this file, 
-  # it's normal to get lost with all the options and variables 
-  #
-  # Before diving in, make sure to take a look at the documentation.
-  # in particular read the components-overview section (https://github.com/games-on-whales/gow/blob/master/docs/components-overview.md)
-  # in order to get a view on how the components are tied together
-  ####################  
-
-
-  ####################
-  # If you don't have a desktop environment we have to run Xorg
   xorg:
     build: 
       context: ./images/
       dockerfile: xorg/Dockerfile
     image: gameonwhales/xorg
+    container_name: Armax_xorg
     network_mode: ${UDEVD_NETWORK}
     privileged: true
     volumes: 
@@ -35,13 +23,12 @@ services:
       REFRESH_RATE: ${XORG_REFRESH_RATE}
       FORCE_RESOLUTION: ${XORG_FORCE_RESOLUTION}
 
-  ####################
-  # If you don't have a pulse server start it
   pulse:
     build: 
       context: ./images/
       dockerfile: pulseaudio/Dockerfile
     image: gameonwhales/pulseaudio
+    container_name: Armax_pulse
     ipc: ${XORG_IPC}
     volumes: 
       - ${PULSE_SOCKET_HOST}:${PULSE_SOCKET_GUEST}
@@ -56,6 +43,7 @@ services:
       context: ./images/
       dockerfile: udevd/Dockerfile
     image: gameonwhales/udevd
+    container_name: Armax_udevd
     # Setting network to host
     # There must be a way to avoid this but I can't figure it out
     # We need to be on the host network in order to get the PF_NETLINK socket
@@ -65,8 +53,6 @@ services:
     volumes:
       - udev:/run/udev/
 
-
-  ####################
   sunshine:
     depends_on: 
       - xorg
@@ -79,6 +65,7 @@ services:
       #  BUILD_TYPE: RELEASE # To debug run a console inside then gdb -args sunshine > r > on exception: bt
       #  SUNSHINE_SHA: d9f79527104694a223eb9d64309e9337f46909d6
     image: gameonwhales/sunshine
+    container_name: Armax_sunshine
     ports: 
       - 47984-47990:47984-47990/tcp
       - 48010:48010
@@ -107,15 +94,61 @@ services:
       # LIBVA_DRIVER_NAME: i965 # or i965 for older generations
       XDG_RUNTIME_DIR: /tmp/.X11-unix
       PULSE_SERVER: ${PULSE_SERVER}
+      TZ: $TZ
 
+  plexms:
+    image: plexinc/pms-docker:latest
+    container_name: Armax_PMS
+    restart: unless-stopped
+      #networks:
+      #    - t2_proxy
+      #devices:
+      #    - /dev/dri:/dev/dri # for harware transcoding
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "32400:32400/tcp"
+      - "3005:3005/tcp"
+      - "8324:8324/tcp"
+      - "32469:32469/tcp"
+      - "1900:1900/udp" 
+      - "32410:32410/udp"
+      - "32412:32412/udp"
+      - "32413:32413/udp"
+      - "32414:32414/udp"
+    environment:
+        TZ: $TZ
+        HOSTNAME: "ArmaxArenaPMS"
+        PLEX_UID: $PUID
+        PLEX_GID: $PGID
+        ALLOWED_NETWORKS: 172.20.20.0/24,172.16.0.0/13
+    volumes:
+      - $APPDIR/plexms/config:/config
+      - /dev/shm:/transcode
+      - RetroRoms:/media/roms
+      - ~/gow/local_state/retroarch:/retroarch
 
-  ####################
+  tautulli:
+    image: linuxserver/tautulli
+    container_name: tautulli
+    restart: unless-stopped
+    environment:
+      TZ: $TZ
+      PUID: $PUID
+      PGID: $PGID
+    volumes:
+      - $APPDIR/tautulli/config:/config
+      - $APPDIR/plexms/config/Library/Application Support/Plex Media Server/Plug-ins/RetroArcher.bundle:/RetroArcher
+    ports:
+      - 8181:8181
+
   retroarch:
     depends_on:
       - xorg
       - pulse
       - sunshine
     runtime: ${DOCKER_RUNTIME}
+    container_name: Armax_retroarch
     build:
       context: ./images/
       dockerfile: retroarch/Dockerfile
@@ -133,6 +166,7 @@ services:
       - ${PULSE_SOCKET_HOST}:${PULSE_SOCKET_GUEST}
       # Home directory: retroarch games, downloads, cores etc
       - ${local_state}/:/home/retro/
+      - RetroRoms:/home/retro/roms:rw
     ipc: ${SHARED_IPC}  # Needed for MIT-SHM, removing this should cause a performance hit see https://github.com/jessfraz/dockerfiles/issues/359
     environment:
       DISPLAY: ${XORG_DISPLAY}
@@ -144,66 +178,17 @@ services:
       # These values are the defaults, but you can add others if needed
       GOW_REQUIRED_DEVICES: /dev/uinput /dev/input/event* /dev/dri/* /dev/snd/*
       PULSE_SERVER: ${PULSE_SERVER}
-
-  ####################
-  # steam:
-  #   depends_on:
-  #     - xorg
-  #     - pulse
-  #     - sunshine
-  #   runtime: ${DOCKER_RUNTIME}
-  #   build:
-  #     context: ./images/
-  #     dockerfile: steam/Dockerfile
-  #   image: gameonwhales/steam
-  #   network_mode: ${UDEVD_NETWORK}
-  #   privileged: true
-  #   volumes:
-  #     # Followings are needed in order to get joystick support
-  #     - /dev/input:/dev/input:ro
-  #     - udev:/run/udev:ro
-  #     # Xorg socket in order to get the screen
-  #     - ${XORG_SOCKET}:/tmp/.X11-unix
-  #     # Pulse socket, audio
-  #     - ${PULSE_SOCKET_HOST}:${PULSE_SOCKET_GUEST}
-  #     # Home directory: client, games, downloads, etc
-  #     - ${local_state}/:/home/retro/
-  #     # The following is needed by the webview otherwise you'll get Less than 64MB of free space in temporary directory (https://github.com/microsoft/vscode/issues/111729#issuecomment-737399692)
-  #     # TODO: why shm_size doesn't work ??????
-  #     - type: tmpfs
-  #       target: /dev/shm
-  #       tmpfs:
-  #           size: 500M
-  #   ipc: ${SHARED_IPC}  # Needed for MIT-SHM, removing this should cause a performance hit see https://github.com/jessfraz/dockerfiles/issues/359
-  #   environment:
-  #     DISPLAY: ${XORG_DISPLAY}
-  #     NVIDIA_DRIVER_CAPABILITIES: compat32,graphics,utility,display,video
-  #     NVIDIA_VISIBLE_DEVICES: ${GPU_UUID}
-  #     PROTON_LOG: 1
-  #     # LD_LIBRARY_PATH: /home/retro/.steam/ubuntu12_32/
-  #     PULSE_SERVER: ${PULSE_SERVER}
-
-  # ####################
-  # An example of running an unprivileged X11 app in this environment
-  # firefox:
-  #   depends_on: 
-  #     - xorg
-  #     - pulse
-  #     - sunshine
-  #   image: andrewmackrodt/firefox-x11
-  #   volumes:       
-  #     - ${XORG_SOCKET}:/tmp/.X11-unix
-  #     # Pulse socket, audio
-  #     - ${PULSE_SOCKET_HOST}:${PULSE_SOCKET_GUEST}
-  #     # If you have permission errors make sure to chomd ${id}:${id} ./local_state
-  #     - ${local_state}/ffox:/run/user/1000
-  #   environment: 
-  #     DISPLAY: ${XORG_DISPLAY}
-  #     LOG_LEVEL: info
-  #     PULSE_SERVER: ${PULSE_SERVER}
+      TZ: $TZ
 
 ####################
 volumes:
   xorg: # This will hold the xorg socket file and it'll be shared between containers
   pulse: # This will hold the xorg socket
   udev: # This will hold shared udev files
+  RetroRoms:
+    name: RetroRoms
+    driver: local
+    driver_opts: 
+      type: nfs
+      o: vers=3,addr=ds920,rw
+      device: ":/volume1/RetroPieRoms"
