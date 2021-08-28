@@ -2,6 +2,7 @@ version: "3"
 
 services:
   xorg:
+    restart: always
     build: 
       context: ./images/
       dockerfile: xorg/Dockerfile
@@ -24,6 +25,7 @@ services:
       FORCE_RESOLUTION: ${XORG_FORCE_RESOLUTION}
 
   pulse:
+    restart: always
     build: 
       context: ./images/
       dockerfile: pulseaudio/Dockerfile
@@ -39,6 +41,7 @@ services:
   # I'll keep it so that we can isolate services that needs udev
   # And it's good to log the events to debug Sunshine created devices
   udevd:
+    restart: always
     build:
       context: ./images/
       dockerfile: udevd/Dockerfile
@@ -54,6 +57,7 @@ services:
       - udev:/run/udev/
 
   sunshine:
+    restart: always
     depends_on: 
       - xorg
       - pulse
@@ -143,6 +147,7 @@ services:
       - 8181:8181
 
   retroarch:
+    restart: always
     depends_on:
       - xorg
       - pulse
