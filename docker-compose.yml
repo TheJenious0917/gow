@@ -102,52 +102,6 @@ services:
       XDG_RUNTIME_DIR: /tmp/.X11-unix
       PULSE_SERVER: ${PULSE_SERVER}
       TZ: $TZ
-#
-  #plexms:
-  #  image: plexinc/pms-docker:latest
-  #  container_name: Armax_PMS
-  #  restart: unless-stopped
-  #    #networks:
-  #    #    - t2_proxy
-  #    #devices:
-  #    #    - /dev/dri:/dev/dri # for harware transcoding
-  #  security_opt:
-  #    - no-new-privileges:true
-  #  ports:
-  #    - "32400:32400/tcp"
-  #    - "3005:3005/tcp"
-  #    - "8324:8324/tcp"
-  #    - "32469:32469/tcp"
-  #    - "1900:1900/udp" 
-  #    - "32410:32410/udp"
-  #    - "32412:32412/udp"
-  #    - "32413:32413/udp"
-  #    - "32414:32414/udp"
-  #  environment:
-  #      TZ: $TZ
-  #      HOSTNAME: "ArmaxArenaPMS"
-  #      PLEX_UID: $PUID
-  #      PLEX_GID: $PGID
-  #      ALLOWED_NETWORKS: 172.20.20.0/24,172.16.0.0/13
-  #  volumes:
-  #    - $APPDIR/plexms/config:/config
-  #    - /dev/shm:/transcode
-  #    - RetroRoms:/media/roms
-  #    - ~/gow/local_state/retroarch:/retroarch
-#
-  #tautulli:
-  #  image: linuxserver/tautulli
-  #  container_name: tautulli
-  #  restart: unless-stopped
-  #  environment:
-  #    TZ: $TZ
-  #    PUID: $PUID
-  #    PGID: $PGID
-  #  volumes:
-  #    - $APPDIR/tautulli/config:/config
-  #    - $APPDIR/plexms/config/Library/Application Support/Plex Media Server/Plug-ins/RetroArcher.bundle:/RetroArcher
-  #  ports:
-  #    - 8181:8181
 
   retroarch:
     restart: always
